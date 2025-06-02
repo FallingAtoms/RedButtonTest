@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Dot Game</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        #game-container {
+            text-align: center;
+        }
+
+        #dot {
+            width: 100px;
+            height: 100px;
+            background-color: red; /* Initial color */
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        #status {
+            font-size: 1.2em;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="dot"></div>
+        <p id="status">Click the dot!</p>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <script>
+        
+	const firebaseConfig = {
+ 		apiKey: "AIzaSyCJkkjEayUX3pE8wC21g3Vwj7lWxhgOdhk",
+  		authDomain: "reddot-game.firebaseapp.com",
+  		projectId: "reddot-game",
+  		storageBucket: "reddot-game.firebasestorage.app",
+  		messagingSenderId: "976408909955",
+  		appId: "1:976408909955:web:babbab369301463d5fe3b6"
+	};
+
+
+        // Initialize Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        } else {
+            firebase.app(); // if already initialized, use that one
+        }
+
+        const db = firebase.firestore();
+        const dotElement = document.getElementById('dot');
+        const statusElement = document.getElementById('status');
+
+        // Firestore document reference
+        // Using a unique path to avoid collision if multiple instances run in the same shared Firestore project
+        const gameId = 'simpleDotGame'; // You could make this dynamic for multiple game rooms
+        const gameDocRef = db.collection('canvasGames').doc(gameId);
+
+        // Function to update dot color locally
+        function updateDotColor(color) {
+            if (dotElement) {
+                dotElement.style.backgroundColor = color;
+            }
+            if (statusElement) {
+                statusElement.textContent = `The dot is now ${color}!`;
+            }
+        }
+
+        // Listen for clicks on the dot
+        if (dotElement) {
+            dotElement.addEventListener('click', () => {
+                // Determine the new color
+                const currentColor = dotElement.style.backgroundColor || 'red'; // Default to red if not set
+                const newColor = currentColor === 'red' ? 'blue' : 'red';
+
+                // Update Firestore
+                gameDocRef.set({ color: newColor })
+                    .then(() => {
+                        console.log('Color updated in Firestore:', newColor);
+                    })
+                    .catch((error) => {
+                        console.error('Error updating Firestore:', error);
+                        if (statusElement) {
+                            statusElement.textContent = 'Error syncing. Please try again.';
+                        }
+                    });
+            });
+        }
+
+        // Listen for real-time updates from Firestore
+        gameDocRef.onSnapshot((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.color) {
+                    updateDotColor(data.color);
+                    console.log('Received update from Firestore:', data.color);
+                } else {
+                     // Document exists but no color field, initialize it
+                    console.log('Document exists but no color field. Initializing to red.');
+                    gameDocRef.set({ color: 'red' }, { merge: true }) // merge to avoid overwriting other potential fields
+                        .then(() => updateDotColor('red'))
+                        .catch(err => console.error("Error initializing color field:", err));
+                }
+            } else {
+                // Document doesn't exist, let's initialize it
+                console.log('No dot state found. Initializing to red.');
+                gameDocRef.set({ color: 'red' })
+                    .then(() => updateDotColor('red'))
+                    .catch(err => console.error("Error initializing doc:", err));
+            }
+        }, (error) => {
+            console.error("Error listening to Firestore:", error);
+            if (statusElement) {
+                statusElement.textContent = 'Error connecting to real-time updates.';
+            }
+        });
+
+        // Initial fetch to set the color on load, especially if onSnapshot takes a moment
+        // or if there's no immediate write to trigger it.
+        gameDocRef.get().then((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.color) {
+                    updateDotColor(data.color);
+                } else {
+                    // If 'color' field is missing after initial load, initialize
+                    updateDotColor('red'); // Update UI immediately
+                    gameDocRef.set({ color: 'red' }, { merge: true }); // Set in Firestore
+                }
+            } else {
+                // If the document doesn't exist at all, initialize
+                updateDotColor('red'); // Update UI immediately
+                gameDocRef.set({ color: 'red' }); // Set in Firestore
+            }
+        }).catch((error) => {
+            console.error("Error getting initial document:", error);
+            if (statusElement) {
+                statusElement.textContent = 'Failed to load initial game state.';
+            }
+            // Initialize to red locally if Firestore fails on first load
+            updateDotColor('red');
+        });
+
+    </script>
+</body>
+</html>
