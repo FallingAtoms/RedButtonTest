@@ -1,0 +1,8 @@
+const firebaseConfig = {
+  apiKey: "AIzaSyCJkkjEayUX3pE8wC21g3Vwj7lWxhgOdhk",
+  authDomain: "reddot-game.firebaseapp.com",
+  projectId: "reddot-game",
+  storageBucket: "reddot-game.firebasestorage.app",
+  messagingSenderId: "976408909955",
+  appId: "1:976408909955:web:babbab369301463d5fe3b6"
+};
